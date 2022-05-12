@@ -6,6 +6,12 @@ authors:
 
 crystal: 1.3.2
 
+targets:
+  npm_scan:
+    main: src/npm_scan.cr
+  npm_downloads:
+    main: src/npm_downloads.cr
+
 dependencies:
   retrycr:
     github: taylorfinnell/retrycr
