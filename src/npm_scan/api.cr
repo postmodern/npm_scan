@@ -3,14 +3,20 @@ require "json"
 
 module NPMScan
   class API
-    class RateLimitError < RuntimeError
+    class HTTPError < RuntimeError
+    end
+
+    class RateLimitError < HTTPError
+    end
+
+    class TimeoutError < HTTPError
     end
 
     ALL_DOCS_URI = "/_all_docs"
 
     def all_docs
-      replicate_npmjs_com.get(ALL_DOCS_URI) do |response|
-        retry do
+      retry do
+        replicate_npmjs_com.get(ALL_DOCS_URI) do |response|
           case response.status_code
           when 200
             stream = response.body_io
@@ -31,6 +37,8 @@ module NPMScan
             end
           when 429
             raise(RateLimitError.new)
+          when 529
+            raise(TimeoutError.new)
           else
             STDERR.puts "ERROR: received #{response.status_code}"
             return
@@ -102,11 +110,11 @@ module NPMScan
 
       begin
         return yield
-      rescue RateLimitError
+      rescue RateLimitError | TimeoutError
         loop do
           begin
             return yield
-          rescue error : RateLimitError
+          rescue error : RateLimitError | TimeoutError
             attempts += 1
             sleep(2**attempts)
           end
