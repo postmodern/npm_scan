@@ -12,6 +12,9 @@ module NPMScan
     class TimeoutError < HTTPError
     end
 
+    class InvalidResponse < HTTPError
+    end
+
     ALL_DOCS_PATH = "/_all_docs"
 
     def all_docs
@@ -54,9 +57,11 @@ module NPMScan
 
         case response.status_code
         when 200
-          body = response.body
-
-          return JSON.parse(body)
+          unless (body = response.body).empty?
+            return JSON.parse(body)
+          else
+            raise(InvalidResponse.new("received empty response body for path: #{path}"))
+          end
         when 429
           raise(RateLimitError.new)
         when 504, 524
@@ -102,11 +107,14 @@ module NPMScan
 
         case response.status_code
         when 200
-          body = response.body
-          json = JSON.parse(body)
-          hash = json.as_h
+          unless (body = response.body).empty?
+            json = JSON.parse(body)
+            hash = json.as_h
 
-          return hash["downloads"].as_i
+            return hash["downloads"].as_i
+          else
+            raise(InvalidResponse.new("received empty response body for path: #{path}"))
+          end
         when 429
           raise(RateLimitError.new)
         when 504, 524
