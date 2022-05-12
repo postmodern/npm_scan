@@ -22,3 +22,12 @@ usage: npm_scan [options]
     -D, --dns-workers NUM            Number of DNS request workers (Default: 100)
     -h, --help                       Prints this cruft
 ```
+
+## Examples
+
+Scan for all packages, log output, and allow resuming after `Ctrl^C`:
+
+```
+$ ./npm_scan -c packages.txt -o vuln_packages.txt --resume
+```
+
