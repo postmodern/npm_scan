@@ -37,7 +37,7 @@ module NPMScan
             end
           when 429
             raise(RateLimitError.new)
-          when 529
+          when 524
             raise(TimeoutError.new)
           else
             STDERR.puts "ERROR: received #{response.status_code}"
