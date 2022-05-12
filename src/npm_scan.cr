@@ -51,7 +51,7 @@ module NPMScan
 
         parser.on("-W","--wordlist-path FILE","Checks the npm packages in the given wordlist_path") do |path|
           unless File.file?(path)
-            STDERR.puts "error: no such file: #{path}"
+            print_error "no such file: #{path}"
             exit 1
           end
 
@@ -72,14 +72,14 @@ module NPMScan
         end
 
         parser.invalid_option do |flag|
-          STDERR.puts "error: unknown option: #{flag}"
+          print_error "unknown option: #{flag}"
           STDERR.puts parser
           exit 1
         end
       end
 
       if @resume && @cache_path.nil?
-        STDERR.puts "error: --resume requires the --cache option"
+        print_error "--resume requires the --cache option"
         exit 1
       end
     end
@@ -157,10 +157,10 @@ module NPMScan
                   Package.new(name: package_name, domain: domains[0])
                 )
               when 0
-                STDERR.puts "alert: package #{package_name} has no maintainers!"
+                print_alert "package #{package_name} has no maintainers!"
               end
             rescue error : API::HTTPError
-              STDERR.puts "error: #{error.message}"
+              print_error error.message
             end
           end
 
@@ -210,8 +210,18 @@ module NPMScan
           output_file << "#{orphan.package.name}\t#{orphan.domain}"
         end
       end
-
     end
+
+    @[AlwaysInline]
+    private def print_error(message)
+      STDERR.puts "error: #{message}"
+    end
+
+    @[AlwaysInline]
+    private def print_alert(message)
+      STDERR.puts "alert: #{message}"
+    end
+
   end
 end
 
