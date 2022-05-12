@@ -1,8 +1,4 @@
-require "./npm_scan/api"
-require "./npm_scan/package"
-require "./npm_scan/email_address"
-require "./npm_scan/domain"
-require "./npm_scan/orphaned_package"
+require "./npm_scan/scanner"
 require "./npm_scan/output_file"
 
 require "dns"
@@ -105,113 +101,42 @@ module NPMScan
         end
       end
 
-      package_names = Channel(String?).new(@num_api_workers)
-      cache_file    = if @cache_path
-                        OutputFile.new(@cache_path.not_nil!, resume: @resume)
+      cache_file = if @cache_path
+                     OutputFile.open(@cache_path.not_nil!, resume: @resume)
+                   end
+
+      wordlist_file = if @wordlist_path
+                        File.open(@wordlist_path.not_nil!)
                       end
 
-      spawn do
-        if @wordlist_path
-          File.open(@wordlist_path.not_nil!) do |file|
-            file.each_line do |line|
-              package_name = line.chomp
-
-              if !@resume || (@resume && !@resumed_packages.includes?(package_name))
-                if cache_file
-                  cache_file << package_name
-                end
-
-                package_names.send(package_name)
-              end
-            end
-          end
-        else
-          api = API.new
-
-          api.all_docs do |package_name|
-            if !@resume || (@resume && !@resumed_packages.includes?(package_name))
-              if cache_file
-                cache_file << package_name
-              end
-
-              package_names.send(package_name)
-            end
-          end
-        end
-
-        num_api_workers.times { package_names.send(nil) }
-      end
-
-      lonely_packages = Channel(Package?).new
-
-      @num_api_workers.times do
-        spawn do
-          api = API.new
-
-          while (package_name = package_names.receive)
-            # skip forked packages
-            begin
-              emails  = api.maintainer_emails_for(package_name)
-              domains = emails.map { |email| EmailAddress.domain_for(email) }
-              domains.uniq!
-
-              case domains.size
-              when 1
-                lonely_packages.send(
-                  Package.new(name: package_name, domain: domains[0])
-                )
-              when 0
-                print_alert "package #{package_name} has no maintainers!"
-              end
-            rescue error : API::HTTPError
-              print_error error.message
-            end
-          end
-
-          lonely_packages.send(nil)
-        end
-      end
-
-      resolved_domains   = Set(String).new
-      unresolved_domains = Hash(String,OrphanedPackage).new
-      orphaned_packages  = Channel(OrphanedPackage?).new(@num_dns_workers)
-
-      @num_dns_workers.times do
-        spawn do
-          resolver = DNS::Resolver.new
-
-          while (package = lonely_packages.receive)
-            if (orphan = unresolved_domains[package.domain]?)
-              orphaned_packages.send(orphan)
-            elsif !resolved_domains.includes?(package.domain)
-              domain = Domain.new(package.domain)
-
-              retryable(on: IO::TimeoutError, tries: 3) do
-                if domain.registered?(resolver)
-                  resolved_domains << domain.name
-                else
-                  orphan = OrphanedPackage.new(package: package, domain: domain)
-
-                  unresolved_domains[domain.name] = orphan
-                  orphaned_packages.send(orphan)
-                end
-              end
-            end
-          end
-
-          orphaned_packages.send(nil)
-        end
-      end
-
       output_file = if @output_path
-                      OutputFile.new(@output_path.not_nil!, resume: @resume)
+                      OutputFile.open(@output_path.not_nil!, resume: @resume)
                     end
 
-      while (orphan = orphaned_packages.receive)
-        puts "Found orphaned npm package: #{orphan.package.name} domain: #{orphan.domain}"
+      scanner = Scanner.new(
+        api_workers: @num_api_workers,
+        dns_workers: @num_dns_workers,
 
-        if output_file
-          output_file << "#{orphan.package.name}\t#{orphan.domain}"
+        wordlist: wordlist_file,
+        cache:    cache_file,
+
+        resume:           @resume,
+        resumed_packages: resumed_packages
+      )
+
+      scanner.scan do |result|
+        case result
+        in OrphanedPackage
+
+          puts "Found orphaned npm package: #{result.package.name} domain: #{result.domain}"
+
+          if output_file
+            output_file.puts "#{result.package.name}\t#{result.domain}"
+          end
+        in Scanner::Alert
+          print_alert result.message
+        in Scanner::Error
+          print_alert result.message
         end
       end
 

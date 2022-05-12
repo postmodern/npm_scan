@@ -3,16 +3,28 @@ require "json"
 
 module NPMScan
   class API
-    class HTTPError < RuntimeError
+    class Error < RuntimeError
+
+      # The error message.
+      #
+      # Note: All API errors must have a message!
+      getter! message : String
+
     end
 
-    class RateLimitError < HTTPError
+    class HTTPError < Error
     end
 
-    class TimeoutError < HTTPError
+    class InvalidResponse < Error
     end
 
-    class InvalidResponse < HTTPError
+    class RecoverableError < RuntimeError
+    end
+
+    class RateLimitError < RecoverableError
+    end
+
+    class TimeoutError < RecoverableError
     end
 
     ALL_DOCS_PATH = "/_all_docs"

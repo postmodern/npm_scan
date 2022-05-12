@@ -1,21 +1,16 @@
 module NPMScan
-  class OutputFile
+  class OutputFile < File
 
     getter path : String
 
-    getter? resume
-
-    def initialize(@path : String, @resume : Bool = false)
-      mode = if @resume; "a"
-             else        "w"
+    def self.open(path : String, resume : Bool = false) : OutputFile
+      mode = if resume; "a"
+             else       "w"
              end
 
-      @file = File.open(path,mode)
-    end
-
-    def <<(line : String)
-      @file.puts(line)
-      @file.flush
+      file = new(path,mode)
+      file.flush_on_newline = true
+      return file
     end
 
   end
