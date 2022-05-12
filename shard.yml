@@ -1,0 +1,13 @@
+name: npm-scan
+version: 0.1.0
+
+authors:
+  - Postmodern <postmodern.mod3@gmail.com>
+
+crystal: 1.3.2
+
+dependencies:
+  retrycr:
+    github: taylorfinnell/retrycr
+  dns:
+    gitlab: jgillich/crystal-dns
