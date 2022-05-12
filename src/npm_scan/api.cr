@@ -72,8 +72,22 @@ module NPMScan
       return maintainers.map { |maintainer| maintainer.as_h["email"].as_s }
     end
 
-    def download_count(package_name : String) : Int32
-      path = "/downloads/point/last-week/#{URI.encode_path_segment(package_name)}"
+    enum Period
+      DAY = 1
+      WEEK = 7
+      MONTH = 30
+
+      def path : String
+        case self
+        in DAY then "last-day"
+        in WEEK then "last-week"
+        in MONTH then "last-month"
+        end
+      end
+    end
+
+    def download_count(package_name : String, period : Period = Period::DAY) : Int32
+      path = "/downloads/point/#{period.path}/#{URI.encode_path_segment(package_name)}"
 
       retry do
         response = api_npmjs_org.get(path)
