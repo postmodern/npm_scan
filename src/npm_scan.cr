@@ -117,9 +117,6 @@ module NPMScan
 
   lonely_packages = Channel(Package?).new
 
-  resolved_domains  = Set(String).new
-  orphaned_packages = Channel(Orphaned?).new(num_dns_workers)
-
   num_api_workers.times do
     spawn do
       api = API.new
@@ -148,21 +145,28 @@ module NPMScan
     end
   end
 
+  resolved_domains   = Set(String).new
+  unresolved_domains = Hash(String,Orphaned).new
+  orphaned_packages  = Channel(Orphaned?).new(num_dns_workers)
+
   num_dns_workers.times do
     spawn do
       resolver = DNS::Resolver.new
 
       while (package = lonely_packages.receive)
-        unless resolved_domains.includes?(package.domain)
+        if (orphan = unresolved_domains[package.domain]?)
+          orphaned_packages.send(orphan)
+        elsif !resolved_domains.includes?(package.domain)
           domain = Domain.new(package.domain)
 
           retryable(on: IO::TimeoutError, tries: 3) do
             if domain.registered?(resolver)
               resolved_domains << domain.name
             else
-              orphaned_packages.send(
-                Orphaned.new(package: package, domain: domain)
-              )
+              orphan = Orphaned.new(package: package, domain: domain)
+
+              unresolved_domains[domain.name] = orphan
+              orphaned_packages.send(orphan)
             end
           end
         end
