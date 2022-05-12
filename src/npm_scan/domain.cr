@@ -24,6 +24,10 @@ module NPMScan
       @name == other.name
     end
 
+    def to_s : String
+      @name
+    end
+
     def to_s(io : IO)
       @name.to_s(io)
     end
