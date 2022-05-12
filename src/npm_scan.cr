@@ -2,7 +2,7 @@ require "./npm_scan/api"
 require "./npm_scan/package"
 require "./npm_scan/email_address"
 require "./npm_scan/domain"
-require "./npm_scan/orphaned"
+require "./npm_scan/orphaned_package"
 require "./npm_scan/output_file"
 
 require "dns"
@@ -146,8 +146,8 @@ module NPMScan
   end
 
   resolved_domains   = Set(String).new
-  unresolved_domains = Hash(String,Orphaned).new
-  orphaned_packages  = Channel(Orphaned?).new(num_dns_workers)
+  unresolved_domains = Hash(String,OrphanedPackage).new
+  orphaned_packages  = Channel(OrphanedPackage?).new(num_dns_workers)
 
   num_dns_workers.times do
     spawn do
@@ -163,7 +163,7 @@ module NPMScan
             if domain.registered?(resolver)
               resolved_domains << domain.name
             else
-              orphan = Orphaned.new(package: package, domain: domain)
+              orphan = OrphanedPackage.new(package: package, domain: domain)
 
               unresolved_domains[domain.name] = orphan
               orphaned_packages.send(orphan)
