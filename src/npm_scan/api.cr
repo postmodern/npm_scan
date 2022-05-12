@@ -68,10 +68,16 @@ module NPMScan
     end
 
     def maintainer_emails_for(package_name : String) : Array(String)
-      package_metadata = package_metadata(package_name)
-      maintainers      = package_metadata.as_h["maintainers"].as_a
+      json     = package_metadata(package_name)
+      metadata = json.as_h
 
-      return maintainers.map { |maintainer| maintainer.as_h["email"].as_s }
+      if (maintainers = metadata["maintainers"]?)
+        maintainers = maintainers.as_a
+
+        return maintainers.map { |maintainer| maintainer.as_h["email"].as_s }
+      else
+        return [] of String
+      end
     end
 
     enum Period

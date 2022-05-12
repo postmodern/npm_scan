@@ -130,10 +130,13 @@ module NPMScan
           domains = emails.map { |email| email.split('@',2).last }
           domains.uniq!
 
-          if domains.size == 1
+          case domains.size
+          when 1
             lonely_packages.send(
               Package.new(name: package_name, domain: domains[0])
             )
+          when 0
+            STDERR.puts "alert: package #{package_name} has no maintainers!"
           end
         rescue error : API::HTTPError
           STDERR.puts "error: #{error.message}"
