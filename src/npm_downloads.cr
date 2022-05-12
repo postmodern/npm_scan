@@ -3,7 +3,7 @@ require "./npm_scan/api"
 require "option_parser"
 
 module NPMDownloads
-  period = NPMScan::API::Period::DAY
+  period = NPMScan::API::Period::WEEK
 
   OptionParser.parse do |parser|
     parser.banner = "usage: npm_downloads [FILE]"
