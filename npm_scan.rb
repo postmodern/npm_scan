@@ -33,41 +33,50 @@ def rate_limit
   begin
     yield
   rescue RateLimitError
+    attempts += 1
+    slee(2 ** attempts)
+
+    retry
   end
 end
 
-workers = 100
+api_workers = 20
+dns_workers = 100
 
-internet = Async::HTTP::Internet.new
-package_names = Async::LimitedQueue.new(workers)
-lonely_packages = Async::Queue.new
-resolved_domains = Set.new
-orphaned_packages = Async::Queue.new
+def debug(message)
+  $stderr.puts(message) if $DEBUG
+end
 
-Async do |task|
-  task.async do
+Async do |parent|
+  package_names = Async::LimitedQueue.new(api_workers)
+
+  Async do
+    internet = Async::HTTP::Internet.new
     response = internet.get('https://replicate.npmjs.com/_all_docs')
 
     response.each do |chunk|
       chunk.scan(/"key":"([^"]+)"/) do |match|
         package_name = match[0]
 
-        puts "Package: #{package_name}"
+        debug "Package: #{package_name}"
         package_names.enqueue(package_name)
       end
-
-      workers.times { package_names << nil }
     end
+
+    api_workers.times { package_names << nil }
+    internet.close
   end
 
-  workers.times do
-    task.async do |subtask|
-      while (package_name = package_names.dequeue)
-        attempts = 0
+  lonely_packages = Async::LimitedQueue.new(dns_workers)
 
-        begin
-          puts "Querying #{package_name} ..."
-          response = internet.get("https://replicate.npmjs.com/#{package_name}")
+  api_workers.times do
+    Async do |task|
+      internet = Async::HTTP::Internet.new
+
+      while (package_name = package_names.dequeue)
+        rate_limit do
+          debug "Querying #{package_name} ..."
+          response = internet.get("https://replicate.npmjs.com/#{URI.encode_www_form_component(package_name)}")
 
           case response.status
           when 200
@@ -88,20 +97,20 @@ Async do |task|
           else
             $stderr.puts "error: #{package_name}: received #{response.status}"
           end
-        rescue RateLimitError
-          puts "warning: rate limited ..."
-          attempts += 1
-          subtask.sleep(2**atempts)
-          retry
         end
       end
 
+      internet.close
       lonely_packages << nil
     end
   end
 
-  workers.times do
-    task.async do
+  resolved_domains     = Set.new
+  unregistered_domains = Set.new
+  orphaned_packages = Async::Queue.new
+
+  dns_workers.times do
+    Async do
       resolver = Async::DNS::Resolver.new(
         [
           [:udp, '8.8.8.8', 53],
@@ -110,14 +119,24 @@ Async do |task|
       )
 
       while (package = lonely_packages.dequeue)
-        unless resolved_domains.include?(package.domain)
-          puts "Resolving #{package.domain} ..."
+        if unregistered_domains.include?(package.domain)
+          debug "Orphaned package! #{package}"
+          orphaned_packages.enqueue(package)
+        elsif !resolved_domains.include?(package.domain)
+          debug "Resolving #{package.domain} ..."
 
-          if resolver.addresses_for(package.domain).empty?
-            puts "Orphaned package! #{package}"
+          addresses = begin
+                        resolver.addresses_for(package.domain)
+                      rescue Async::DNS::ResolutionFailure
+                        []
+                      end
+
+          if addresses.empty?
+            debug "Orphaned package! #{package}"
+            unregistered_domains << package.name
             orphaned_packages.enqueue(package)
           else
-            puts "Valid domain: #{package.domain}"
+            debug "Valid domain: #{package.domain}"
             resolved_domains << package.domain
           end
         end
@@ -127,7 +146,7 @@ Async do |task|
     end
   end
 
-  task.async do
+  Async do
     while (package = orphaned_packages.dequeue)
       puts "Found orphaned package: #{package} domain: #{package.domain}"
     end
