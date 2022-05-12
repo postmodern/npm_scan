@@ -16,7 +16,7 @@ module NPMScan
   resumed_packages = Set(String).new
 
   num_api_workers = 30
-  num_dns_workers     = 100
+  num_dns_workers = 100
 
   OptionParser.parse do |parser|
     parser.banner = "usage: npm_scan [options]"
