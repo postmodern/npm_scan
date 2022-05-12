@@ -88,11 +88,13 @@ module NPMScan
         file.each_line do |line|
           package_name = line.chomp
 
-          if cache_file
-            cache_file << package_name
-          end
+          if !resume || (resume && !resumed_packages.includes?(package_name))
+            if cache_file
+              cache_file << package_name
+            end
 
-          package_names.send(package_name)
+            package_names.send(package_name)
+          end
         end
       end
     else
