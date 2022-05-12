@@ -12,14 +12,11 @@ module NPMScan
     class TimeoutError < HTTPError
     end
 
-    class UnexpectedHTTPStatus < HTTPError
-    end
-
-    ALL_DOCS_URI = "/_all_docs"
+    ALL_DOCS_PATH = "/_all_docs"
 
     def all_docs
       retry do
-        replicate_npmjs_com.get(ALL_DOCS_URI) do |response|
+        replicate_npmjs_com.get(ALL_DOCS_PATH) do |response|
           case response.status_code
           when 200
             stream = response.body_io
@@ -43,7 +40,7 @@ module NPMScan
           when 524
             raise(TimeoutError.new)
           else
-            raise(UnexpectedHTTPStatus.new("unknown HTTP status: #{response.status_code}"))
+            raise(HTTPError.new("unexpected HTTP status (#{response.status_code}) for path: #{ALL_DOCS_PATH}"))
           end
         end
       end
@@ -63,17 +60,16 @@ module NPMScan
         when 429
           raise(RateLimitError.new)
         else
-          raise(UnexpectedHTTPStatus.new("unknown HTTP status: #{response.status_code}"))
+          raise(HTTPError.new("unexpected HTTP status (#{response.status_code}) for path: #{path}"))
         end
       end
     end
 
-    def maintainer_emails_for(package_name : String) : Array(String)?
-      if (package_metadata = package_metadata(package_name))
-        maintainers = package_metadata.as_h["maintainers"].as_a
+    def maintainer_emails_for(package_name : String) : Array(String)
+      package_metadata = package_metadata(package_name)
+      maintainers      = package_metadata.as_h["maintainers"].as_a
 
-        return maintainers.map { |maintainer| maintainer.as_h["email"].as_s }
-      end
+      return maintainers.map { |maintainer| maintainer.as_h["email"].as_s }
     end
 
     def download_count(package_name : String) : Int32
@@ -92,7 +88,7 @@ module NPMScan
         when 429
           raise(RateLimitError.new)
         else
-          raise(UnexpectedHTTPStatus.new("unknown HTTP status: #{response.status_code}"))
+          raise(HTTPError.new("unexpected HTTP status (#{response.status_code}) for path: #{path}"))
         end
       end
     end

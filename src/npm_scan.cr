@@ -110,7 +110,8 @@ module NPMScan
 
       while (package_name = package_names.receive)
         # skip forked packages
-        if (emails = api.maintainer_emails_for(package_name))
+        begin
+          emails  = api.maintainer_emails_for(package_name)
           domains = emails.map { |email| email.split('@',2).last }
           domains.uniq!
 
@@ -119,6 +120,8 @@ module NPMScan
               Package.new(name: package_name, domain: domains[0])
             )
           end
+        rescue error : API::HTTPError
+          STDERR.puts "error: #{error.message}"
         end
       end
 
