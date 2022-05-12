@@ -33,7 +33,7 @@ module NPMScan
       @resumed_packages = Set(String).new
     end
 
-    def parse_options
+    def parse_options : Int32
       OptionParser.parse do |parser|
         parser.banner = "usage: npm_scan [options]"
 
@@ -50,11 +50,6 @@ module NPMScan
         end
 
         parser.on("-W","--wordlist-path FILE","Checks the npm packages in the given wordlist_path") do |path|
-          unless File.file?(path)
-            print_error "no such file: #{path}"
-            exit 1
-          end
-
           @wordlist_path = path
         end
 
@@ -78,18 +73,27 @@ module NPMScan
         end
       end
 
+      if @wordlist_path && !File.file?(@wordlist_path.not_nil!)
+        print_error "no such file: #{@wordlist_path}"
+        return 1
+      end
+
       if @resume && @cache_path.nil?
         print_error "--resume requires the --cache option"
-        exit 1
+        return 1
       end
+
+      return 0
     end
 
     def self.start
-      new().run
+      exit new().run
     end
 
-    def run
-      parse_options
+    def run : Int32
+      unless (ret = parse_options)
+        return ret
+      end
 
       if @resume && @cache_path
         if File.file?(@cache_path.not_nil!)
@@ -210,6 +214,8 @@ module NPMScan
           output_file << "#{orphan.package.name}\t#{orphan.domain}"
         end
       end
+
+      return 0
     end
 
     @[AlwaysInline]
