@@ -1,7 +1,7 @@
 require "dns"
 
 module NPMScan
-  class Domain
+  struct Domain
     RECORD_TYPES = [DNS::RecordType::A, DNS::RecordType::AAAA, DNS::RecordType::MX]
 
     getter name : String
