@@ -21,12 +21,8 @@ module NPMDownloads
     end
   end
 
-  input = if ARGV[0]
-            File.open(ARGV[0])
-          else
-            STDIN
-          end
-  api = NPMScan::API.new
+  input = ARGF
+  api   = NPMScan::API.new
 
   input.each_line do |line|
     package_name = line.split(/\s+/,2).first
