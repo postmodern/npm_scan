@@ -15,5 +15,7 @@ targets:
 dependencies:
   retrycr:
     github: taylorfinnell/retrycr
+    version: "~> 0.1"
   dns:
     gitlab: jgillich/crystal-dns
+    version: "~> 0.1"
