@@ -37,7 +37,7 @@ module NPMScan
             end
           when 429
             raise(RateLimitError.new)
-          when 524
+          when 504, 524
             raise(TimeoutError.new)
           else
             raise(HTTPError.new("unexpected HTTP status (#{response.status_code}) for path: #{ALL_DOCS_PATH}"))
@@ -59,7 +59,7 @@ module NPMScan
           return JSON.parse(body)
         when 429
           raise(RateLimitError.new)
-        when 524
+        when 504, 524
           raise(TimeoutError.new)
         else
           raise(HTTPError.new("unexpected HTTP status (#{response.status_code}) for path: #{path}"))
@@ -109,7 +109,7 @@ module NPMScan
           return hash["downloads"].as_i
         when 429
           raise(RateLimitError.new)
-        when 524
+        when 504, 524
           raise(TimeoutError.new)
         else
           raise(HTTPError.new("unexpected HTTP status (#{response.status_code}) for path: #{path}"))
