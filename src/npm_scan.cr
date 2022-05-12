@@ -79,7 +79,7 @@ module NPMScan
 
   package_names = Channel(String?).new(num_api_workers)
   cache_file = if cache_path
-                 OutputFile.new(path.not_nil!, resume: resume)
+                 OutputFile.new(cache_path.not_nil!, resume: resume)
                end
 
   spawn do
