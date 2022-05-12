@@ -15,7 +15,7 @@ module NPMScan
   resume = false
   resumed_packages = Set(String).new
 
-  num_package_workers = 30
+  num_api_workers = 30
   num_dns_workers     = 100
 
   OptionParser.parse do |parser|
@@ -40,6 +40,14 @@ module NPMScan
       end
 
       wordlist_path = path
+    end
+
+    parser.on("-A","--api-workers NUM","Number of API request workers (Default: #{num_api_workers})") do |num|
+      num_api_workers = num.to_i32
+    end
+
+    parser.on("-D","--dns-workers NUM","Number of DNS request workers (Default: #{num_dns_workers})") do |num|
+      num_dns_workers = num.to_i32
     end
 
     parser.on("-h","--help","Prints this cruft") do
@@ -69,7 +77,7 @@ module NPMScan
     end
   end
 
-  package_names = Channel(String?).new(num_package_workers)
+  package_names = Channel(String?).new(num_api_workers)
   cache_file = if (path = cache_path)
                  OutputFile.new(path.not_nil!, resume: resume)
                end
@@ -96,7 +104,7 @@ module NPMScan
       end
     end
 
-    num_package_workers.times { package_names.send(nil) }
+    num_api_workers.times { package_names.send(nil) }
   end
 
   lonely_packages = Channel(Package?).new
@@ -104,7 +112,7 @@ module NPMScan
   resolved_domains  = Set(String).new
   orphaned_packages = Channel(Orphaned?).new(num_dns_workers)
 
-  num_package_workers.times do
+  num_api_workers.times do
     spawn do
       api = API.new
 
