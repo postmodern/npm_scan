@@ -157,11 +157,11 @@ module NPMScan
                   OutputFile.new(path.not_nil!, resume: resume)
                 end
 
-  while (orphane = orphaned_packages.receive)
-    puts "Found orphaned npm package: #{orphane.package.name} domain: #{orphane.domain}"
+  while (orphan = orphaned_packages.receive)
+    puts "Found orphaned npm package: #{orphan.package.name} domain: #{orphan.domain}"
 
     if output_file
-      output_file << "#{orphane.package.name}\t#{orphane.domain}"
+      output_file << "#{orphan.package.name}\t#{orphan.domain}"
     end
   end
 end
