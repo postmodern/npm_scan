@@ -1,13 +1,9 @@
-struct EmailAddress
+module EmailAddress
 
-  getter user : String
-
-  getter domain : String
-
-  def self.parse(string : String) : EmailAddress
+  def self.domain_for(string : String) : String
     user, domain = string.split('@',2)
 
-    return new(user,domain)
+    return domain
   end
 
 end

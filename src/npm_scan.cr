@@ -1,5 +1,6 @@
 require "./npm_scan/api"
 require "./npm_scan/package"
+require "./npm_scan/email_address"
 require "./npm_scan/domain"
 require "./npm_scan/orphan"
 require "./npm_scan/output_file"
@@ -127,7 +128,7 @@ module NPMScan
         # skip forked packages
         begin
           emails  = api.maintainer_emails_for(package_name)
-          domains = emails.map { |email| email.split('@',2).last }
+          domains = emails.map { |email| EmailAddress.domain_for(email) }
           domains.uniq!
 
           case domains.size
