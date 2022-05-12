@@ -12,6 +12,9 @@ module NPMScan
     class TimeoutError < HTTPError
     end
 
+    class UnexpectedHTTPStatus < HTTPError
+    end
+
     ALL_DOCS_URI = "/_all_docs"
 
     def all_docs
@@ -40,14 +43,13 @@ module NPMScan
           when 524
             raise(TimeoutError.new)
           else
-            STDERR.puts "ERROR: received #{response.status_code}"
-            return
+            raise(UnexpectedHTTPStatus.new("unknown HTTP status: #{response.status_code}"))
           end
         end
       end
     end
 
-    def package_metadata(package_name : String) : JSON::Any?
+    def package_metadata(package_name : String) : JSON::Any
       path = "/#{URI.encode_path_segment(package_name)}"
 
       retry do
@@ -61,8 +63,7 @@ module NPMScan
         when 429
           raise(RateLimitError.new)
         else
-          STDERR.puts "ERROR: #{package_name}: received #{response.status_code}"
-          return nil
+          raise(UnexpectedHTTPStatus.new("unknown HTTP status: #{response.status_code}"))
         end
       end
     end
@@ -75,7 +76,7 @@ module NPMScan
       end
     end
 
-    def download_count(package_name : String) : Int32?
+    def download_count(package_name : String) : Int32
       path = "/downloads/point/last-week/#{URI.encode_path(package_name)}"
 
       retry do
@@ -91,8 +92,7 @@ module NPMScan
         when 429
           raise(RateLimitError.new)
         else
-          STDERR.puts "ERROR: #{package_name}: received #{response.status_code}"
-          return nil
+          raise(UnexpectedHTTPStatus.new("unknown HTTP status: #{response.status_code}"))
         end
       end
     end
