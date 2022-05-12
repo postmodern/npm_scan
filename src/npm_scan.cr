@@ -33,7 +33,7 @@ module NPMScan
       resume = true
     end
 
-    parser.on("-W","--wordlist_path FILE","Checks the npm packages in the given wordlist_path") do |path|
+    parser.on("-W","--wordlist-path FILE","Checks the npm packages in the given wordlist_path") do |path|
       unless File.file?(path)
         STDERR.puts "error: no such file: #{path}"
         exit 1
