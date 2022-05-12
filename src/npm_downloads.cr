@@ -34,7 +34,7 @@ module NPMDownloads
     begin
       download_count = api.download_count(package_name, period: period)
 
-      puts "#{package_name}: #{download_count}/#{period}"
+      puts "#{package_name}: #{download_count}"
     rescue error : NPMScan::API::HTTPError
       STDERR.puts "error: #{error.message}"
     end
