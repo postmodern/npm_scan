@@ -78,7 +78,7 @@ module NPMScan
   end
 
   package_names = Channel(String?).new(num_api_workers)
-  cache_file = if (path = cache_path)
+  cache_file = if cache_path
                  OutputFile.new(path.not_nil!, resume: resume)
                end
 
@@ -87,6 +87,11 @@ module NPMScan
       File.open(wordlist_path.not_nil!) do |file|
         file.each_line do |line|
           package_name = line.chomp
+
+          if cache_file
+            cache_file << package_name
+          end
+
           package_names.send(package_name)
         end
       end
