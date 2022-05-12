@@ -73,7 +73,7 @@ module NPMScan
     end
 
     def download_count(package_name : String) : Int32
-      path = "/downloads/point/last-week/#{URI.encode_path(package_name)}"
+      path = "/downloads/point/last-week/#{URI.encode_path_segment(package_name)}"
 
       retry do
         response = api_npmjs_org.get(path)
