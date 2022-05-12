@@ -3,8 +3,14 @@ module NPMScan
 
     getter path : String
 
-    def initialize(@path : String)
-      @file = File.open(path,"w")
+    getter? resume
+
+    def initialize(@path : String, @resume : Bool = false)
+      mode = if @resume; "a"
+             else        "w"
+             end
+
+      @file = File.open(path,mode)
     end
 
     def <<(line : String)

@@ -12,6 +12,8 @@ module NPMScan
   wordlist_path : String? = nil
   output_path : String? = nil
   cache_path : String? = nil
+  resume = false
+  resumed_packages = Set(String).new
 
   num_package_workers = 30
   num_dns_workers     = 100
@@ -27,7 +29,16 @@ module NPMScan
       cache_path = path
     end
 
+    parser.on("-R","--resume","Skips package already in the --cache file") do
+      resume = true
+    end
+
     parser.on("-W","--wordlist_path FILE","Checks the npm packages in the given wordlist_path") do |path|
+      unless File.file?(path)
+        STDERR.puts "error: no such file: #{path}"
+        exit 1
+      end
+
       wordlist_path = path
     end
 
@@ -43,14 +54,29 @@ module NPMScan
     end
   end
 
+  if resume
+    if cache_path
+      if File.file?(cache_path.not_nil!)
+        File.open(cache_path.not_nil!) do |file|
+          file.each_line do |line|
+            resumed_packages << line.chomp
+          end
+        end
+      end
+    else
+      STDERR.puts "error: --resume requires the --cache option"
+      exit 1
+    end
+  end
+
   package_names = Channel(String?).new(num_package_workers)
   cache_file = if (path = cache_path)
-                 OutputFile.new(path.not_nil!)
+                 OutputFile.new(path.not_nil!, resume: resume)
                end
 
   spawn do
-    if (path = wordlist_path)
-      File.open(path.not_nil!) do |file|
+    if wordlist_path
+      File.open(wordlist_path.not_nil!) do |file|
         file.each_line do |line|
           package_name = line.chomp
           package_names.send(package_name)
@@ -60,11 +86,13 @@ module NPMScan
       api = API.new
 
       api.all_docs do |package_name|
-        if cache_file
-          cache_file << package_name
-        end
+        if !resume || (resume && !resumed_packages.includes?(package_name))
+          if cache_file
+            cache_file << package_name
+          end
 
-        package_names.send(package_name)
+          package_names.send(package_name)
+        end
       end
     end
 
@@ -123,7 +151,7 @@ module NPMScan
   end
 
   output_file = if (path = output_path)
-                  OutputFile.new(path.not_nil!)
+                  OutputFile.new(path.not_nil!, resume: resume)
                 end
 
   while (orphane = orphaned_packages.receive)
