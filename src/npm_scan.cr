@@ -2,13 +2,16 @@ require "./npm_scan/api"
 require "./npm_scan/package"
 require "./npm_scan/domain"
 require "./npm_scan/orphan"
+require "./npm_scan/output_file"
 
 require "dns"
 require "retrycr"
 require "option_parser"
 
 module NPMScan
-  wordlist : String? = nil
+  wordlist_path : String? = nil
+  output_path : String? = nil
+  cache_path : String? = nil
 
   num_package_workers = 30
   num_dns_workers     = 100
@@ -16,8 +19,16 @@ module NPMScan
   OptionParser.parse do |parser|
     parser.banner = "usage: npm_scan [options]"
 
-    parser.on("-W","--wordlist FILE","Checks the npm packages in the given wordlist") do |path|
-      wordlist = path
+    parser.on("-o","--output FILE","Writes output to file") do |path|
+      output_path = path
+    end
+
+    parser.on("-c","--cache FILE","Write package names to the cache file") do |path|
+      cache_path = path
+    end
+
+    parser.on("-W","--wordlist_path FILE","Checks the npm packages in the given wordlist_path") do |path|
+      wordlist_path = path
     end
 
     parser.on("-h","--help","Prints this cruft") do
@@ -33,18 +44,26 @@ module NPMScan
   end
 
   package_names = Channel(String?).new(num_package_workers)
+  cache_file = if (path = cache_path)
+                 OutputFile.new(path.not_nil!)
+               end
 
   spawn do
-    if (path = wordlist)
-      File.open(path) do |file|
+    if (path = wordlist_path)
+      File.open(path.not_nil!) do |file|
         file.each_line do |line|
-          package_names.send(line.chomp)
+          package_name = line.chomp
+          package_names.send(package_name)
         end
       end
     else
       api = API.new
 
       api.all_docs do |package_name|
+        if cache_file
+          cache_file << package_name
+        end
+
         package_names.send(package_name)
       end
     end
@@ -103,7 +122,15 @@ module NPMScan
     end
   end
 
+  output_file = if (path = output_path)
+                  OutputFile.new(path.not_nil!)
+                end
+
   while (orphane = orphaned_packages.receive)
     puts "Found orphaned npm package: #{orphane.package.name} domain: #{orphane.domain}"
+
+    if output_file
+      output_file << "#{orphane.package.name}\t#{orphane.domain}"
+    end
   end
 end
