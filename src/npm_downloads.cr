@@ -55,13 +55,13 @@ module NPMDownloads
           package_names_channel.send(package_name)
         end
 
-        workers.times { package_names_channel.send(nil) }
+        @workers.times { package_names_channel.send(nil) }
       end
 
       download_counts_channel = Channel({String,Int32}?).new
 
-      workers.times do
-        spawn do
+      @workers.times do
+        spawn name: "API worker" do
           api = NPMScan::API.new
 
           while (package_name = package_names_channel.receive)
@@ -78,10 +78,16 @@ module NPMDownloads
         end
       end
 
-      while (download_count = download_counts_channel.receive)
-        package_name, count = download_count
+      workers_left = @workers
 
-        puts "#{package_name}: #{count}"
+      while workers_left > 0
+        if (download_count = download_counts_channel.receive)
+          package_name, count = download_count
+
+          puts "#{package_name}: #{count}"
+        else
+          workers_left -= 1
+        end
       end
 
       return 0
