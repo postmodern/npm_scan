@@ -128,15 +128,15 @@ module NPMScan
 
       scanner.scan do |result|
         case result
-        in OrphanedPackage
+        in Scanner::AbandonedPackage
+          puts "Found abandoned npm package: #{result.name}"
+        in Scanner::OrphanedPackage
 
-          puts "Found orphaned npm package: #{result.package.name} domain: #{result.domain}"
+          puts "Found orphaned npm package: #{result.name} domain: #{result.domain}"
 
           if output_file
-            output_file.puts "#{result.package.name}\t#{result.domain}"
+            output_file.puts "#{result.name}\t#{result.domain}"
           end
-        in Scanner::Alert
-          print_alert result.message
         in Scanner::Error
           print_alert result.message
         end

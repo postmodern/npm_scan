@@ -9,10 +9,6 @@ module NPMScan
     def initialize(@name : String)
     end
 
-    def self.from_email(email : String) : Domain
-      Domain.new(email.split('@',2).last)
-    end
-
     def registered?(resolver : DNS::Resolver)
       RECORD_TYPES.any? do |record_type|
         response = resolver.query(@name,record_type)

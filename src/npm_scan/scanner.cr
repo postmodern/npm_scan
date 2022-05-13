@@ -2,7 +2,7 @@ require "./api"
 require "./package"
 require "./email_address"
 require "./domain"
-require "./orphaned_package"
+require "./dns_cache"
 
 require "dns"
 require "retrycr"
@@ -30,10 +30,12 @@ module NPMScan
                    @resumed_packages : Set(String) = Set(String).new)
     end
 
+    record AbandonedPackage, name : String
+    record LonelyPackage, name : String, domain : String
+    record OrphanedPackage, name : String, domain : String
     record Error, message : String
-    record Alert, message : String
 
-    def scan(&block : (OrphanedPackage | Alert | Error) ->)
+    def scan(&block : (AbandonedPackage | OrphanedPackage | Error) ->)
       package_names_channel = Channel(String?).new(@api_workers)
 
       spawn name: "package list worker" do
@@ -50,7 +52,7 @@ module NPMScan
         @api_workers.times { package_names_channel.send(nil) }
       end
 
-      lonely_packages_channel = Channel(Package?).new
+      lonely_packages_channel = Channel(LonelyPackage?).new
 
       @api_workers.times do
         spawn name: "API worker" do
@@ -58,17 +60,17 @@ module NPMScan
 
           while (package_name = package_names_channel.receive)
             begin
-              emails  = api.maintainer_emails_for(package_name)
-              domains = emails.map { |email| EmailAddress.domain_for(email) }
-              domains.uniq!
+              package = api.get_package(package_name)
 
-              case domains.size
-              when 1
-                package = Package.new(name: package_name, domain: domains[0])
-
-                lonely_packages_channel.send(package)
-              when 0
-                block.call(Alert.new("package #{package_name} has no maintainers!"))
+              if package.is_orphaned?
+                block.call(AbandonedPackage.new(name: package_name))
+              elsif package.is_lonely?
+                lonely_packages_channel.send(
+                  LonelyPackage.new(
+                    name:   package.name,
+                    domain: package.domains[0]
+                  )
+                )
               end
             rescue error : API::HTTPError
               block.call(Error.new(error.message))
@@ -81,9 +83,7 @@ module NPMScan
 
       api_workers_left = @api_workers
 
-      resolved_domains   = Set(String).new
-      unresolved_domains = Hash(String,OrphanedPackage).new
-
+      dns_cache = DNSCache.new
       orphaned_packages_channel = Channel(OrphanedPackage?).new(@dns_workers)
 
       @dns_workers.times do
@@ -91,23 +91,29 @@ module NPMScan
           resolver = DNS::Resolver.new
 
           while api_workers_left > 0
-            if (package = lonely_packages_channel.receive)
-              if (orphan = unresolved_domains[package.domain]?)
-                orphaned_packages_channel.send(orphan)
-              elsif !resolved_domains.includes?(package.domain)
-                domain = Domain.new(package.domain)
+            if (lonely_package = lonely_packages_channel.receive)
+              if dns_cache.is_unresolvable?(lonely_package.domain)
+                orphaned_packages_channel.send(
+                  OrphanedPackage.new(
+                    name:   lonely_package.name,
+                    domain: lonely_package.domain
+                  )
+                )
+              elsif !dns_cache.is_resolvable?(lonely_package.domain)
+                domain = Domain.new(lonely_package.domain)
 
                 retryable(on: IO::TimeoutError, tries: 3) do
                   if domain.registered?(resolver)
-                    resolved_domains << domain.name
+                    dns_cache.resolvable!(domain.name)
                   else
-                    orphan = OrphanedPackage.new(
-                      package: package,
-                      domain:  domain
+                    dns_cache.unresolvable!(domain.name)
+
+                    orphaned_package = OrphanedPackage.new(
+                      name:   lonely_package.name,
+                      domain: lonely_package.domain
                     )
 
-                    unresolved_domains[domain.name] = orphan
-                    orphaned_packages_channel.send(orphan)
+                    orphaned_packages_channel.send(orphaned_package)
                   end
                 end
               end
@@ -123,8 +129,8 @@ module NPMScan
       dns_workers_left = @dns_workers
 
       while dns_workers_left > 0
-        if (orphan = orphaned_packages_channel.receive)
-          block.call(orphan)
+        if (abandoned_package = orphaned_packages_channel.receive)
+          block.call(abandoned_package)
         else
           dns_workers_left -= 1
         end
