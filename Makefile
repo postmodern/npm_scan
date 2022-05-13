@@ -6,7 +6,7 @@ lib:
 npm_scan: src/npm_scan.cr src/npm_scan/*.cr
 	crystal build --release src/npm_scan.cr
 
-npm_downloads: src/npm_downloads.cr src/npm_scan/*.cr
+npm_downloads: src/npm_downloads.cr src/npm_scan/api.cr
 	crystal build --release src/npm_downloads.cr
 
 clean:
