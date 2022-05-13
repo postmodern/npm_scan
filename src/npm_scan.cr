@@ -69,9 +69,11 @@ module NPMScan
         end
       end
 
-      if @wordlist_path && !File.file?(@wordlist_path.not_nil!)
-        print_error "no such file: #{@wordlist_path}"
-        return 1
+      if (path = @wordlist_path)
+        unless File.file?(path)
+          print_error "no such file: #{@wordlist_path}"
+          return 1
+        end
       end
 
       if @resume && @cache_path.nil?
@@ -91,9 +93,9 @@ module NPMScan
         return ret
       end
 
-      if @resume && @cache_path
-        if File.file?(@cache_path.not_nil!)
-          File.open(@cache_path.not_nil!) do |file|
+      if @resume && (path = @cache_path)
+        if File.file?(path)
+          File.open(path) do |file|
             file.each_line do |line|
               @resumed_packages << line.chomp
             end
@@ -101,16 +103,16 @@ module NPMScan
         end
       end
 
-      cache_file = if @cache_path
-                     OutputFile.open(@cache_path.not_nil!, resume: @resume)
+      cache_file = if (path = @cache_path)
+                     OutputFile.open(path, resume: @resume)
                    end
 
-      wordlist_file = if @wordlist_path
-                        File.open(@wordlist_path.not_nil!)
+      wordlist_file = if (path = @wordlist_path)
+                        File.open(path)
                       end
 
-      output_file = if @output_path
-                      OutputFile.open(@output_path.not_nil!, resume: @resume)
+      output_file = if (path = @output_path)
+                      OutputFile.open(path, resume: @resume)
                     end
 
       scanner = Scanner.new(

@@ -39,8 +39,8 @@ module NPMScan
       spawn do
         each_package_name do |package_name|
           if !@resume || (@resume && !@resumed_packages.includes?(package_name))
-            if @cache
-              @cache.not_nil!.puts package_name
+            if (cache = @cache)
+              cache.puts package_name
             end
 
             package_names_channel.send(package_name)
@@ -117,8 +117,8 @@ module NPMScan
     end
 
     def each_package_name
-      if @wordlist
-        @wordlist.not_nil!.each_line do |line|
+      if (wordlist = @wordlist)
+        wordlist.each_line do |line|
           yield line.chomp
         end
       else
