@@ -85,19 +85,7 @@ module NPMScan
     end
 
     def get_package(package_name : String) : Package
-      json     = package_metadata(package_name)
-      metadata = json.as_h
-
-      emails = if (maintainers = metadata["maintainers"]?)
-                      maintainers = maintainers.as_a
-                      maintainers.map { |maintainer|
-                        maintainer.as_h["email"].as_s
-                      }
-                    else
-                      [] of String
-                    end
-
-      return Package.new(name: package_name, emails: emails)
+      Package.new(package_name,package_metadata(package_name))
     end
 
     enum Period

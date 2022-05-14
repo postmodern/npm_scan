@@ -62,13 +62,13 @@ module NPMScan
             begin
               package = api.get_package(package_name)
 
-              if package.is_orphaned?
+              if package.is_abandoned?
                 block.call(AbandonedPackage.new(name: package_name))
               elsif package.is_lonely?
                 lonely_packages_channel.send(
                   LonelyPackage.new(
                     name:   package.name,
-                    domain: package.domains[0]
+                    domain: package.unique_domains[0]
                   )
                 )
               end
