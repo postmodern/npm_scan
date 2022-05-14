@@ -1,4 +1,5 @@
 require "./npm_scan/api"
+require "./npm_scan/output_file"
 
 require "option_parser"
 
@@ -15,14 +16,22 @@ module NPMDownloads
 
     getter workers : Int32
 
+    getter output_path : String?
+
     def initialize
       @period  = NPMScan::API::Period::WEEK
       @workers = 20
+
+      @output_path  = nil
     end
 
     def parse_options : Int32
       OptionParser.parse do |parser|
         parser.banner = "usage: npm_downloads [FILE]"
+
+        parser.on("-o","--output FILE","Writes the output to a file.") do |path|
+          @output_path = path
+        end
 
         parser.on("-p","--period [day|week|month]","Downloads within the the time window. (Default: week)") do |str|
           period = PERIODS.fetch(str) do
@@ -45,6 +54,10 @@ module NPMDownloads
 
     def run : Int32
       parse_options
+
+      output_file = if (path = @output_path)
+                      NPMScan::OutputFile.new(path)
+                    end
 
       package_names_channel = Channel(String?).new
 
@@ -85,6 +98,7 @@ module NPMDownloads
           package_name, count = download_count
 
           puts "#{package_name}: #{count}"
+          output_file.puts "#{package_name} #{count}" if output_file
         else
           workers_left -= 1
         end
