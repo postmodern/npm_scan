@@ -135,7 +135,7 @@ module NPMScan
           puts "Found orphaned npm package: #{result.name} domain: #{result.domain}"
 
           if output_file
-            output_file.puts "#{result.name}\t#{result.domain}"
+            output_file.puts "#{result.name} #{result.domain}"
           end
         in Scanner::Error
           print_alert result.message
