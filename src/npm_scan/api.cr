@@ -1,5 +1,6 @@
 require "http"
 require "json"
+require "xml"
 
 module NPMScan
   class API
@@ -61,7 +62,7 @@ module NPMScan
       end
     end
 
-    def package_metadata(package_name : String) : JSON::Any
+    private def package_metadata(package_name : String) : JSON::Any
       path = "/#{URI.encode_path_segment(package_name)}"
 
       retry do
@@ -102,19 +103,28 @@ module NPMScan
       end
     end
 
-    def download_count(package_name : String, period : Period = Period::DAY) : Int32
-      path = "/downloads/point/#{period.path}/#{URI.encode_path_segment(package_name)}"
+    def scrape_package_metadata(package_name : String) : String
+      path = "/package/#{package_name}"
 
       retry do
-        response = api_npmjs_org.get(path)
+        response = npmjs_com.get(path)
 
         case response.status_code
         when 200
           unless (body = response.body).empty?
-            json = JSON.parse(body)
-            hash = json.as_h
+            doc = XML.parse_html(body)
 
-            return hash["downloads"].as_i
+            if (script = doc.xpath_node("//script[@integrity]"))
+              js   = script.inner_text
+
+              if (first_curly_brace = js.index('{'))
+                return js[first_curly_brace..]
+              else
+                raise(InvalidResponse.new("could not find JSON in <script integrity=\"...\"> tag: https://www.npmjs.com#{path}"))
+              end
+            else
+              raise(InvalidResponse.new("could not find the <script integrity=\"...\"> tag in document: https://www.npmjs.com#{path}"))
+            end
           else
             raise(InvalidResponse.new("received empty response body for path: #{path}"))
           end
@@ -123,17 +133,34 @@ module NPMScan
         when 504, 524
           raise(TimeoutError.new)
         else
-          raise(HTTPError.new("unexpected HTTP status (#{response.status_code}) for path: #{path}"))
+          raise(HTTPError.new("unexpected HTTP status (#{response.status_code}) for path: https://www.npmjs.com#{path}"))
         end
       end
     end
+
+    def download_count(package_name : String)
+      json = JSON.parse(scrape_package_metadata(package_name))
+      hash = json.as_h
+
+      return hash["context"].as_h["downloads"].as_a.last.as_h["downloads"].as_i
+    end
+
+    @replicate_npmjs_com : HTTP::Client?
 
     private def replicate_npmjs_com
       @replicate_npmjs_com ||= HTTP::Client.new("replicate.npmjs.com", tls: true)
     end
 
+    @api_npmjs_org : HTTP::Client?
+
     private def api_npmjs_org
       @api_npmjs_org ||= HTTP::Client.new("api.npmjs.org", tls: true)
+    end
+
+    @npmjs_com : HTTP::Client?
+
+    private def npmjs_com
+      @npmjs_com ||= HTTP::Client.new("www.npmjs.com", tls: true)
     end
 
     private def retry(max_attempts = 10)

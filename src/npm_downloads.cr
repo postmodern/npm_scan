@@ -1,25 +1,15 @@
 require "./npm_scan/api"
-require "./npm_scan/output_file"
 
 require "option_parser"
 
 module NPMDownloads
   class CLI
 
-    PERIODS = {
-      "day"   => NPMScan::API::Period::DAY,
-      "week"  => NPMScan::API::Period::WEEK,
-      "month" => NPMScan::API::Period::MONTH
-    }
-
-    getter period : NPMScan::API::Period
-
     getter workers : Int32
 
     getter output_path : String?
 
     def initialize
-      @period  = NPMScan::API::Period::WEEK
       @workers = 20
 
       @output_path  = nil
@@ -31,13 +21,6 @@ module NPMDownloads
 
         parser.on("-o","--output FILE","Writes the output to a file.") do |path|
           @output_path = path
-        end
-
-        parser.on("-p","--period [day|week|month]","Downloads within the the time window. (Default: week)") do |str|
-          period = PERIODS.fetch(str) do
-            STDERR.puts "error: unknown --period value: #{str}"
-            exit 1
-          end
         end
 
         parser.on("-w","--workers NUM","The number of concurrent workers.") do |num|
@@ -56,7 +39,7 @@ module NPMDownloads
       parse_options
 
       output_file = if (path = @output_path)
-                      NPMScan::OutputFile.new(path)
+                      File.new(path,"w")
                     end
 
       package_names_channel = Channel(String?).new
@@ -79,7 +62,7 @@ module NPMDownloads
 
           while (package_name = package_names_channel.receive)
             begin
-              download_count = api.download_count(package_name, period: period)
+              download_count = api.download_count(package_name)
 
               download_counts_channel.send({package_name, download_count})
             rescue error : NPMScan::API::HTTPError
