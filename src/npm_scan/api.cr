@@ -115,7 +115,7 @@ module NPMScan
             doc = XML.parse_html(body)
 
             if (script = doc.xpath_node("//script[@integrity]"))
-              js   = script.inner_text
+              js = script.inner_text
 
               if (first_curly_brace = js.index('{'))
                 return js[first_curly_brace..]
