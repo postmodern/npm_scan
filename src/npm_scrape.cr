@@ -57,12 +57,16 @@ module NPMScrape
           api = NPMScan::API.new
 
           while (package_name = package_names_channel.receive)
-            begin
-              json = api.scrape_package_metadata(package_name)
+            output_path = File.join(@output_dir,"#{package_name}.json")
 
-              scraped_metadata_channel.send({package_name, json})
-            rescue error : NPMScan::API::HTTPError
-              print_error error.message
+            unless File.file?(output_path)
+              begin
+                json = api.scrape_package_metadata(package_name)
+
+                scraped_metadata_channel.send({package_name, json})
+              rescue error : NPMScan::API::HTTPError
+                print_error error.message
+              end
             end
           end
 
