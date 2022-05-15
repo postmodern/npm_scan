@@ -64,7 +64,7 @@ module NPMScrape
                 json = api.scrape_package_metadata(package_name)
 
                 scraped_metadata_channel.send({package_name, json})
-              rescue error : NPMScan::API::HTTPError
+              rescue error : NPMScan::API::Error
                 print_error error.message
               end
             end

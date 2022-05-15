@@ -72,7 +72,7 @@ module NPMScan
                   )
                 )
               end
-            rescue error : API::HTTPError
+            rescue error : API::Error
               block.call(Error.new(error.message))
             end
           end

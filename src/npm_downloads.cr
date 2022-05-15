@@ -65,7 +65,7 @@ module NPMDownloads
               download_count = api.download_count(package_name)
 
               download_counts_channel.send({package_name, download_count})
-            rescue error : NPMScan::API::HTTPError
+            rescue error : NPMScan::API::Error
               print_error error.message
             end
           end
