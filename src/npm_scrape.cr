@@ -5,14 +5,19 @@ require "option_parser"
 module NPMScrape
   class CLI
 
+    IGNORED_PACKAGES = Set{"no-one-left-behind"}
+
     getter workers : Int32
 
     getter output_dir : String
+
+    getter? recursive
 
     def initialize
       @workers = 20
 
       @output_dir = "npmjs"
+      @recursive  = false
     end
 
     def parse_options : Int32
@@ -21,6 +26,10 @@ module NPMScrape
 
         parser.on("-o","--output DIR","Saves the JSON files to a directory.") do |dir|
           @output_dir = dir
+        end
+
+        parser.on("-R","--recursive","Recursively scrape NPM package metadata.") do |dir|
+          @recursive = true
         end
 
         parser.on("-w","--workers NUM","The number of concurrent workers.") do |num|
@@ -78,13 +87,23 @@ module NPMScrape
 
       while workers_left > 0
         if (package_metadata = scraped_metadata_channel.receive)
-          package_name, json = package_metadata
+          package_name, raw_json = package_metadata
 
           output_path = File.join(@output_dir,"#{package_name}.json")
           Dir.mkdir_p(File.dirname(output_path))
 
           puts "Scraped #{package_name} ..."
-          File.write(output_path,json)
+          File.write(output_path,raw_json)
+
+          if @recursive
+            dependents = parse_dependents(raw_json)
+
+            dependents.each do |dependent|
+              unless IGNORED_PACKAGES.includes?(dependent)
+                package_names_channel.send(dependent)
+              end
+            end
+          end
         else
           workers_left -= 1
         end
@@ -96,6 +115,12 @@ module NPMScrape
     @[AlwaysInline]
     private def print_error(message : String)
       STDERR.puts "error: #{message}"
+    end
+
+    private def parse_dependents(raw_json : String) : Array(String)
+      json = JSON.parse(raw_json)
+
+      return json.as_h["context"].as_h["dependents"].as_h["dependentsTruncated"].as_a.map(&.as_s)
     end
 
   end
