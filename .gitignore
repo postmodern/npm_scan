@@ -1,4 +1,5 @@
 *.txt
+*.json
 /docs/
 /lib/
 /bin/
