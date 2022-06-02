@@ -1,9 +1,11 @@
-module EmailAddress
+module NPMScan
+  module EmailAddress
 
-  def self.domain_for(string : String) : String
-    user, domain = string.split('@',2)
+    def self.domain_for(string : String) : String
+      user, domain = string.split('@',2)
 
-    return domain
+      return domain
+    end
+
   end
-
 end
