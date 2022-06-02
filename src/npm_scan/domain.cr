@@ -30,9 +30,20 @@ module NPMScan
 
     def registered?(resolver : DNS::Resolver)
       RECORD_TYPES.any? do |record_type|
-        response = resolver.query(@name,record_type)
+        response = query_records(resolver,record_type)
         !response.answers.empty?
       end
+    end
+
+    def query_records(resolver : DNS::Resolver, record_type : DNS::RecordType)
+      response = resolver.query(@name,record_type)
+
+      # double-query if we get back an empty response
+      if response.answers.empty?
+        response = resolver.query(@name,record_type)
+      end
+
+      return response
     end
 
     def ==(other : Domain) : Bool
