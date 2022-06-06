@@ -13,7 +13,6 @@ Scans npmjs.org for NPM packages that can be taken over.
 ```
 $ ./npm_scan --help
 usage: npm_scan [options]
-usage: npm_scan [options]
     -o, --output FILE                Writes output to file
     -c, --cache FILE                 Write package names to the cache file
     -R, --resume                     Skips package already in the --cache file
