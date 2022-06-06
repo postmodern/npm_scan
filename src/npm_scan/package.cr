@@ -68,7 +68,7 @@ module NPMScan
       @hash["description"].as_s == "Security holding package"
     end
 
-    def is_abandoned? : Bool
+    def is_locked? : Bool
       maintainers.empty?
     end
 

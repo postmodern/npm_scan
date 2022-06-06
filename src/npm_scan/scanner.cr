@@ -49,12 +49,12 @@ module NPMScan
                    @resumed_packages : Set(String) = Set(String).new)
     end
 
-    record AbandonedPackage, name : String
+    record LockedPackage, name : String
     record LonelyPackage, name : String, domain : String
     record OrphanedPackage, name : String, domain : String
     record Error, message : String
 
-    def scan(&block : (AbandonedPackage | OrphanedPackage | Error) ->)
+    def scan(&block : (LockedPackage | OrphanedPackage | Error) ->)
       package_names_channel = Channel(String?).new(@api_workers)
 
       spawn name: "package list worker" do
@@ -81,8 +81,8 @@ module NPMScan
             begin
               package = api.get_package(package_name)
 
-              if package.is_abandoned?
-                block.call(AbandonedPackage.new(name: package_name))
+              if package.is_locked?
+                block.call(LockedPackage.new(name: package_name))
               elsif package.is_lonely?
                 lonely_packages_channel.send(
                   LonelyPackage.new(
