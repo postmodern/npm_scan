@@ -148,8 +148,8 @@ module NPMScan
       dns_workers_left = @dns_workers
 
       while dns_workers_left > 0
-        if (abandoned_package = orphaned_packages_channel.receive)
-          block.call(abandoned_package)
+        if (orphaned_package = orphaned_packages_channel.receive)
+          block.call(orphaned_package)
         else
           dns_workers_left -= 1
         end
