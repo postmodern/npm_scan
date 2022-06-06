@@ -148,7 +148,7 @@ module NPMScan
       scanner.scan do |result|
         case result
         in Scanner::LockedPackage
-          puts "Found abandoned npm package: #{result.name}"
+          puts "Found locked npm package: #{result.name}"
         in Scanner::OrphanedPackage
 
           puts "Found orphaned npm package: #{result.name} domain: #{result.domain}"
